@@ -26,6 +26,7 @@ static void snippets_engine_init        (SnippetsEngine      *engine);
 static void snippets_engine_finalize    (SnippetsEngine      *engine);
 
 static gchar* get_config_file_path      (SnippetsEngine      *engine);
+static GList* get_configs_deep_copy     (SnippetsEngine      *engine);
 
 #define SNIPPETS_ENGINE_GET_PRIVATE(obj) \
   (G_TYPE_INSTANCE_GET_PRIVATE ((obj), SNIPPETS_ENGINE_TYPE, SnippetsEnginePrivate))
@@ -112,12 +113,14 @@ void
 snippets_engine_open_dialog (SnippetsEngine *engine)
 {
   SnippetsEnginePrivate *priv;
+  GList *copies;
   GtkWidget *dialog;
   gint response;
 
   priv = SNIPPETS_ENGINE_GET_PRIVATE (engine);
 
-  dialog = snippets_dialog_new (priv->codeslayer, NULL);
+  copies = get_configs_deep_copy (engine);
+  dialog = snippets_dialog_new (priv->codeslayer, &copies);
     
   response = gtk_dialog_run (GTK_DIALOG (dialog));
     
@@ -143,4 +146,42 @@ get_config_file_path (SnippetsEngine *engine)
   g_free (folder_path);
   
   return file_path;
+}
+
+static GList*
+get_configs_deep_copy (SnippetsEngine *engine)
+{
+  SnippetsEnginePrivate *priv;
+  GList *results = NULL;
+  GList *list;
+
+  priv = SNIPPETS_ENGINE_GET_PRIVATE (engine);
+  
+  list = priv->configs;
+
+  while (list != NULL)
+    {
+      SnippetsConfig *config = list->data;
+      SnippetsConfig *copy;
+      const gchar *file_types;
+      const gchar *name;
+      const gchar *trigger;
+      const gchar *text;
+
+      file_types = snippets_config_get_file_types (config);
+      name = snippets_config_get_name (config);
+      trigger = snippets_config_get_trigger (config);
+      text = snippets_config_get_text (config);
+      
+      copy = snippets_config_new ();
+      snippets_config_set_file_types (copy, file_types);
+      snippets_config_set_name (copy, name);
+      snippets_config_set_trigger (copy, trigger);
+      snippets_config_set_text (copy, text);
+      results = g_list_prepend (results, copy);
+      
+      list = g_list_next (list);
+    }
+    
+  return results;    
 }
