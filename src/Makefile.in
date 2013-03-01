@@ -94,6 +94,9 @@ am__installdirs = "$(DESTDIR)$(libdir)"
 LTLIBRARIES = $(lib_LTLIBRARIES)
 libsnippetscodeslayerplugin_la_LIBADD =
 am_libsnippetscodeslayerplugin_la_OBJECTS =  \
+	libsnippetscodeslayerplugin_la-snippets-engine.lo \
+	libsnippetscodeslayerplugin_la-snippets-dialog.lo \
+	libsnippetscodeslayerplugin_la-snippets-config.lo \
 	libsnippetscodeslayerplugin_la-snippets-plugin.lo
 libsnippetscodeslayerplugin_la_OBJECTS =  \
 	$(am_libsnippetscodeslayerplugin_la_OBJECTS)
@@ -285,6 +288,12 @@ top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 lib_LTLIBRARIES = libsnippetscodeslayerplugin.la
 libsnippetscodeslayerplugin_la_SOURCES = \
+    snippets-engine.h \
+    snippets-engine.c \
+    snippets-dialog.h \
+    snippets-dialog.c \
+    snippets-config.h \
+    snippets-config.c \
     snippets-plugin.c
 
 libsnippetscodeslayerplugin_la_CPPFLAGS = $(SNIPPETSCODESLAYERPLUGIN_CFLAGS) -I$(top_srcdir) -I$(srcdir)
@@ -366,6 +375,9 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libsnippetscodeslayerplugin_la-snippets-config.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libsnippetscodeslayerplugin_la-snippets-dialog.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libsnippetscodeslayerplugin_la-snippets-engine.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libsnippetscodeslayerplugin_la-snippets-plugin.Plo@am__quote@
 
 .c.o:
@@ -388,6 +400,27 @@ distclean-compile:
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$<' object='$@' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LTCOMPILE) -c -o $@ $<
+
+libsnippetscodeslayerplugin_la-snippets-engine.lo: snippets-engine.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libsnippetscodeslayerplugin_la_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT libsnippetscodeslayerplugin_la-snippets-engine.lo -MD -MP -MF $(DEPDIR)/libsnippetscodeslayerplugin_la-snippets-engine.Tpo -c -o libsnippetscodeslayerplugin_la-snippets-engine.lo `test -f 'snippets-engine.c' || echo '$(srcdir)/'`snippets-engine.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libsnippetscodeslayerplugin_la-snippets-engine.Tpo $(DEPDIR)/libsnippetscodeslayerplugin_la-snippets-engine.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='snippets-engine.c' object='libsnippetscodeslayerplugin_la-snippets-engine.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libsnippetscodeslayerplugin_la_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o libsnippetscodeslayerplugin_la-snippets-engine.lo `test -f 'snippets-engine.c' || echo '$(srcdir)/'`snippets-engine.c
+
+libsnippetscodeslayerplugin_la-snippets-dialog.lo: snippets-dialog.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libsnippetscodeslayerplugin_la_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT libsnippetscodeslayerplugin_la-snippets-dialog.lo -MD -MP -MF $(DEPDIR)/libsnippetscodeslayerplugin_la-snippets-dialog.Tpo -c -o libsnippetscodeslayerplugin_la-snippets-dialog.lo `test -f 'snippets-dialog.c' || echo '$(srcdir)/'`snippets-dialog.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libsnippetscodeslayerplugin_la-snippets-dialog.Tpo $(DEPDIR)/libsnippetscodeslayerplugin_la-snippets-dialog.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='snippets-dialog.c' object='libsnippetscodeslayerplugin_la-snippets-dialog.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libsnippetscodeslayerplugin_la_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o libsnippetscodeslayerplugin_la-snippets-dialog.lo `test -f 'snippets-dialog.c' || echo '$(srcdir)/'`snippets-dialog.c
+
+libsnippetscodeslayerplugin_la-snippets-config.lo: snippets-config.c
+@am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libsnippetscodeslayerplugin_la_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT libsnippetscodeslayerplugin_la-snippets-config.lo -MD -MP -MF $(DEPDIR)/libsnippetscodeslayerplugin_la-snippets-config.Tpo -c -o libsnippetscodeslayerplugin_la-snippets-config.lo `test -f 'snippets-config.c' || echo '$(srcdir)/'`snippets-config.c
+@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/libsnippetscodeslayerplugin_la-snippets-config.Tpo $(DEPDIR)/libsnippetscodeslayerplugin_la-snippets-config.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='snippets-config.c' object='libsnippetscodeslayerplugin_la-snippets-config.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libsnippetscodeslayerplugin_la_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o libsnippetscodeslayerplugin_la-snippets-config.lo `test -f 'snippets-config.c' || echo '$(srcdir)/'`snippets-config.c
 
 libsnippetscodeslayerplugin_la-snippets-plugin.lo: snippets-plugin.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(libsnippetscodeslayerplugin_la_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT libsnippetscodeslayerplugin_la-snippets-plugin.lo -MD -MP -MF $(DEPDIR)/libsnippetscodeslayerplugin_la-snippets-plugin.Tpo -c -o libsnippetscodeslayerplugin_la-snippets-plugin.lo `test -f 'snippets-plugin.c' || echo '$(srcdir)/'`snippets-plugin.c

@@ -17,6 +17,7 @@
  */
 
 #include <codeslayer/codeslayer.h>
+#include "snippets-engine.h"
 #include <gdk/gdkkeysyms.h>
 #include <gtk/gtk.h>
 #include <gmodule.h>
@@ -26,14 +27,23 @@ G_MODULE_EXPORT void activate          (CodeSlayer       *codeslayer);
 G_MODULE_EXPORT void deactivate        (CodeSlayer       *codeslayer);
 G_MODULE_EXPORT void configure         (CodeSlayer       *codeslayer);
 
+static SnippetsEngine *engine;
+
 G_MODULE_EXPORT void
 activate (CodeSlayer *codeslayer)
 {
-  g_print ("activate snippets plugin");
+  engine = snippets_engine_new (codeslayer);
+  snippets_engine_load_configs (engine);
 }
 
 G_MODULE_EXPORT void 
 deactivate (CodeSlayer *codeslayer)
 {
-  g_print ("deactivate snippets plugin");
+  g_object_unref (engine);
+}
+
+G_MODULE_EXPORT void 
+configure  (CodeSlayer *codeslayer)
+{
+  snippets_engine_open_dialog (engine);
 }
