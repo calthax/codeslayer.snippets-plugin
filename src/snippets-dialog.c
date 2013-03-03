@@ -28,8 +28,10 @@ static void add_content_area            (SnippetsDialog      *dialog);
 static void add_file_types_pane         (SnippetsDialog      *dialog, 
                                          GtkWidget           *hpaned);
 static void add_syntax_pane             (SnippetsDialog      *dialog,
-                                         GtkWidget           *hpaned);
+                                         GtkWidget           *hpaned);                                         
+static void load_configs                (SnippetsDialog      *dialog);                                         
 static void tree_add_action             (SnippetsDialog      *dialog);
+static void tree_remove_action          (SnippetsDialog      *dialog);
 static void tree_edited_action          (SnippetsDialog      *dialog, 
                                          gchar               *path, 
                                          gchar               *file_types);                                         
@@ -64,6 +66,9 @@ struct _SnippetsDialogPrivate
   GList                 **configs;
   GtkWidget             *trigger_entry;
   GtkWidget             *text_view;
+
+  gulong                 text_buffer_id;
+  gulong                 trigger_entry_id;
 
   GtkWidget             *menu;
   GtkWidget             *add_item;
@@ -124,6 +129,8 @@ snippets_dialog_new (CodeSlayer *codeslayer,
   create_popup_menu (SNIPPETS_DIALOG (dialog));
   
   preferences_changed_action (SNIPPETS_DIALOG (dialog));
+  
+  load_configs (SNIPPETS_DIALOG (dialog));
 
   return dialog;
 }
@@ -277,8 +284,10 @@ add_file_types_pane (SnippetsDialog *dialog,
   gtk_paned_add1 (GTK_PANED (hpaned), vbox);
   
   g_signal_connect_swapped (G_OBJECT (add_button), "clicked",
-                            G_CALLBACK (tree_add_action), dialog);
-  
+                            G_CALLBACK (tree_add_action), dialog);  
+
+  g_signal_connect_swapped (G_OBJECT (remove_button), "clicked",
+                            G_CALLBACK (tree_remove_action), dialog);
 }
 
 static void
@@ -333,13 +342,64 @@ add_syntax_pane (SnippetsDialog *dialog,
   
   gtk_paned_add2 (GTK_PANED (hpaned), vbox);
     
-  g_signal_connect_swapped (G_OBJECT (priv->trigger_entry), "notify::text",
-                            G_CALLBACK (trigger_entry_action), dialog);
+  priv->trigger_entry_id = g_signal_connect_swapped (G_OBJECT (priv->trigger_entry), "notify::text",
+                                                     G_CALLBACK (trigger_entry_action), dialog);
                             
   buffer = gtk_text_view_get_buffer (GTK_TEXT_VIEW (priv->text_view));
 
-  g_signal_connect_swapped (G_OBJECT (buffer), "changed",
-                            G_CALLBACK (text_view_action), dialog);
+  priv->text_buffer_id = g_signal_connect_swapped (G_OBJECT (buffer), "changed",
+                                                 G_CALLBACK (text_view_action), dialog);
+}
+
+static void
+load_configs (SnippetsDialog *dialog)
+{
+  SnippetsDialogPrivate *priv;
+  GList *list;
+  GtkTextBuffer *buffer;
+  GtkTreeIter parent;
+  const gchar *last_file_types = NULL;
+
+  priv = SNIPPETS_DIALOG_GET_PRIVATE (dialog);
+  
+  buffer = gtk_text_view_get_buffer (GTK_TEXT_VIEW (priv->text_view));
+
+  g_signal_handler_block (priv->trigger_entry, priv->trigger_entry_id);
+  g_signal_handler_block (buffer, priv->text_buffer_id);
+
+  list = *priv->configs;
+  while (list != NULL)
+    {
+      SnippetsConfig *config = list->data;
+      const gchar *file_types;
+      const gchar *name;
+      GtkTreeIter iter;
+      
+      file_types = snippets_config_get_file_types (config);
+      
+      if (last_file_types == NULL || g_strcmp0 (file_types, last_file_types) != 0)
+        {
+          gtk_tree_store_append (priv->store, &parent, NULL);
+          gtk_tree_store_set (priv->store, &parent, 
+                              TEXT, file_types,
+                              -1);
+                              
+          last_file_types = file_types;
+        }
+        
+      name = snippets_config_get_name (config);
+      
+      gtk_tree_store_append (priv->store, &iter, &parent);
+      gtk_tree_store_set (priv->store, &iter, 
+                          TEXT, name,
+                          CONFIGURATION, config,
+                          -1);
+                          
+      list = g_list_next (list);
+    }
+
+  g_signal_handler_unblock (priv->trigger_entry, priv->trigger_entry_id);
+  g_signal_handler_unblock (buffer, priv->text_buffer_id);
 }
 
 static void
@@ -362,6 +422,38 @@ tree_add_action (SnippetsDialog *dialog)
                             column, TRUE);
   
   gtk_tree_path_free (child_path);
+}
+
+static void                
+tree_remove_action (SnippetsDialog *dialog)
+{
+  SnippetsDialogPrivate *priv;
+  GtkTreeSelection *selection;
+  GtkTreeModel *model;
+  GtkTreeIter parent;
+
+  priv = SNIPPETS_DIALOG_GET_PRIVATE (dialog);
+  
+  selection = gtk_tree_view_get_selection (GTK_TREE_VIEW (priv->tree));
+  if (gtk_tree_selection_get_selected (selection, &model, &parent))
+    {
+      GtkTreeIter iter;
+    
+      while (gtk_tree_model_iter_children (model, &iter, &parent))
+        {
+          SnippetsConfig *config;
+        
+          gtk_tree_model_get (GTK_TREE_MODEL (model), &iter, 
+                              CONFIGURATION, &config, -1);
+          
+          *priv->configs = g_list_remove (*priv->configs, config);
+          g_object_unref (config);
+          
+          gtk_tree_store_remove (GTK_TREE_STORE (model), &iter);
+        }
+
+      gtk_tree_store_remove (GTK_TREE_STORE (model), &parent);
+    }
 }
 
 static void 
@@ -406,11 +498,17 @@ select_row_action (GtkTreeSelection *selection,
                    SnippetsDialog   *dialog)
 {
   SnippetsDialogPrivate *priv;
+  GtkTextBuffer *buffer;
   GtkTreeModel *model;
   GtkTreeIter iter;
 
   priv = SNIPPETS_DIALOG_GET_PRIVATE (dialog);
   
+  buffer = gtk_text_view_get_buffer (GTK_TEXT_VIEW (priv->text_view));
+  
+  g_signal_handler_block (priv->trigger_entry, priv->trigger_entry_id);
+  g_signal_handler_block (buffer, priv->text_buffer_id);
+
   if (gtk_tree_selection_get_selected (selection, &model, &iter))
     {
       SnippetsConfig *config;
@@ -429,7 +527,7 @@ select_row_action (GtkTreeSelection *selection,
           text = snippets_config_get_text (config);
           trigger = snippets_config_get_trigger (config);
           
-          if (codeslayer_utils_has_text (text))     
+          if (codeslayer_utils_has_text (text))
             gtk_text_buffer_set_text (buffer, text, -1);
           
           if (codeslayer_utils_has_text (trigger))     
@@ -441,6 +539,9 @@ select_row_action (GtkTreeSelection *selection,
           gtk_entry_set_text (GTK_ENTRY (priv->trigger_entry), "");
         }                  
     }
+    
+  g_signal_handler_unblock (priv->trigger_entry, priv->trigger_entry_id);
+  g_signal_handler_unblock (buffer, priv->text_buffer_id);
 }
 
 static void
@@ -480,8 +581,6 @@ text_view_action (SnippetsDialog *dialog,
   GtkTreeModel *model;
   GtkTreeIter iter;
   
-  g_print ("what\n");
-
   priv = SNIPPETS_DIALOG_GET_PRIVATE (dialog);
   
   selection = gtk_tree_view_get_selection (GTK_TREE_VIEW (priv->tree));

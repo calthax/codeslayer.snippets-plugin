@@ -27,6 +27,10 @@ static void snippets_engine_finalize    (SnippetsEngine      *engine);
 
 static gchar* get_config_file_path      (SnippetsEngine      *engine);
 static GList* get_configs_deep_copy     (SnippetsEngine      *engine);
+static void editor_added_action         (SnippetsEngine       *engine, 
+                                         CodeSlayerEditor     *editor);
+static gboolean key_press_action        (CodeSlayerEditor     *editor,
+                                         GdkEventKey          *event);
 
 #define SNIPPETS_ENGINE_GET_PRIVATE(obj) \
   (G_TYPE_INSTANCE_GET_PRIVATE ((obj), SNIPPETS_ENGINE_TYPE, SnippetsEnginePrivate))
@@ -37,6 +41,7 @@ struct _SnippetsEnginePrivate
 {
   CodeSlayer *codeslayer;
   GList      *configs;
+  gulong      editor_added_id;
 };
 
 G_DEFINE_TYPE (SnippetsEngine, snippets_engine, G_TYPE_OBJECT)
@@ -69,6 +74,8 @@ snippets_engine_finalize (SnippetsEngine *engine)
       priv->configs = NULL;    
     }
 
+  g_signal_handler_disconnect (priv->codeslayer, priv->editor_added_id);
+
   G_OBJECT_CLASS (snippets_engine_parent_class)->finalize (G_OBJECT(engine));
 }
 
@@ -82,6 +89,9 @@ snippets_engine_new (CodeSlayer *codeslayer)
   priv = SNIPPETS_ENGINE_GET_PRIVATE (engine);
 
   priv->codeslayer = codeslayer;
+  
+  priv->editor_added_id = g_signal_connect_swapped (G_OBJECT (codeslayer), "editor-added",
+                                                    G_CALLBACK (editor_added_action), SNIPPETS_ENGINE (engine));
   
   return engine;
 }
@@ -126,7 +136,28 @@ snippets_engine_open_dialog (SnippetsEngine *engine)
     
   if (response == GTK_RESPONSE_OK)
     {
-      g_print ("ok\n");
+      gchar *file_path;
+      
+      g_list_foreach (priv->configs, (GFunc) g_object_unref, NULL);
+      g_list_free (priv->configs);      
+      priv->configs = copies;
+      
+      file_path = get_config_file_path (engine);
+      
+      codeslayer_utils_save_gobjects (copies,
+                                      file_path, 
+                                      "snippet",
+                                      "file_types", G_TYPE_STRING, 
+                                      "name", G_TYPE_STRING, 
+                                      "trigger", G_TYPE_STRING, 
+                                      "text", G_TYPE_STRING, 
+                                      NULL);
+      g_free (file_path);
+    }
+  else
+    {
+      g_list_foreach (copies, (GFunc) g_object_unref, NULL);
+      g_list_free (copies);
     }
   
   gtk_widget_destroy (dialog);
@@ -184,4 +215,21 @@ get_configs_deep_copy (SnippetsEngine *engine)
     }
     
   return results;    
+}
+
+static void 
+editor_added_action (SnippetsEngine   *engine, 
+                     CodeSlayerEditor *editor)
+{  
+  g_signal_connect_swapped (G_OBJECT (editor), "key-press-event",
+                            G_CALLBACK (key_press_action), editor);  
+}
+
+static gboolean
+key_press_action (CodeSlayerEditor *editor,
+                  GdkEventKey      *event)
+{
+  g_print ("key press\n");
+  
+  return FALSE;
 }
