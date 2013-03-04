@@ -16,6 +16,7 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
+#include <gdk/gdkkeysyms.h>
 #include <codeslayer/codeslayer-utils.h>
 #include "snippets-engine.h"
 #include "snippets-dialog.h"
@@ -30,7 +31,9 @@ static GList* get_configs_deep_copy     (SnippetsEngine      *engine);
 static void editor_added_action         (SnippetsEngine       *engine, 
                                          CodeSlayerEditor     *editor);
 static gboolean key_press_action        (CodeSlayerEditor     *editor,
-                                         GdkEventKey          *event);
+                                         GdkEventKey          *event, 
+                                         SnippetsEngine       *engine);
+static void move_iter_word_start        (GtkTextIter          *iter);
 
 #define SNIPPETS_ENGINE_GET_PRIVATE(obj) \
   (G_TYPE_INSTANCE_GET_PRIVATE ((obj), SNIPPETS_ENGINE_TYPE, SnippetsEnginePrivate))
@@ -84,15 +87,30 @@ snippets_engine_new (CodeSlayer *codeslayer)
 {
   SnippetsEnginePrivate *priv;
   SnippetsEngine *engine;
+  GList *editors;
+  GList *tmp;
 
   engine = SNIPPETS_ENGINE (g_object_new (snippets_engine_get_type (), NULL));
   priv = SNIPPETS_ENGINE_GET_PRIVATE (engine);
 
   priv->codeslayer = codeslayer;
   
+  editors = codeslayer_get_all_editors (codeslayer);
+  
+  tmp = editors;
+  
+  while (tmp != NULL)
+    {
+      CodeSlayerEditor *editor = tmp->data;
+      editor_added_action (SNIPPETS_ENGINE (engine), editor);
+      tmp = g_list_next (tmp);
+    }
+    
+  g_list_free (editors);
+  
   priv->editor_added_id = g_signal_connect_swapped (G_OBJECT (codeslayer), "editor-added",
                                                     G_CALLBACK (editor_added_action), SNIPPETS_ENGINE (engine));
-  
+
   return engine;
 }
 
@@ -221,15 +239,98 @@ static void
 editor_added_action (SnippetsEngine   *engine, 
                      CodeSlayerEditor *editor)
 {  
-  g_signal_connect_swapped (G_OBJECT (editor), "key-press-event",
-                            G_CALLBACK (key_press_action), editor);  
+  g_signal_connect (G_OBJECT (editor), "key-press-event",
+                    G_CALLBACK (key_press_action), engine);  
 }
 
 static gboolean
 key_press_action (CodeSlayerEditor *editor,
-                  GdkEventKey      *event)
+                  GdkEventKey      *event, 
+                  SnippetsEngine   *engine)
 {
-  g_print ("key press\n");
+  if (event->keyval == GDK_KEY_Tab)
+    {
+      SnippetsEnginePrivate *priv;
+      CodeSlayerDocument *document;
+      const gchar *file_path;
+      GtkTextBuffer *buffer;
+      GtkTextMark *insert_mark;
+      GtkTextIter iter;
+      GtkTextIter start;
+      gchar *word;
+      GList *list;
+      
+      priv = SNIPPETS_ENGINE_GET_PRIVATE (engine);
+
+      document = codeslayer_get_active_editor_document (priv->codeslayer);
+      file_path = codeslayer_document_get_file_path (document);
+
+      buffer = gtk_text_view_get_buffer (GTK_TEXT_VIEW (editor));
+      insert_mark = gtk_text_buffer_get_insert (buffer);
+      
+      gtk_text_buffer_get_iter_at_mark (buffer, &iter, insert_mark);
+      
+      start = iter;
+      move_iter_word_start (&start);
+      
+      word = gtk_text_iter_get_text (&start, &iter);
+      
+      if (!codeslayer_utils_has_text (word))
+        return FALSE;
+
+      list = priv->configs;
+      while (list != NULL)
+        {
+          SnippetsConfig *config = list->data;
+          const gchar *file_types;
+          const gchar *trigger;
+          GList *elements;
+          
+          file_types = snippets_config_get_file_types (config);
+          
+          elements = codeslayer_utils_string_to_list (file_types);
+          
+          if (!codeslayer_utils_contains_element_with_suffix (elements, file_path))
+            {
+              g_list_foreach (elements, (GFunc) g_free, NULL);
+              g_list_free (elements);
+              list = g_list_next (list);
+              continue;
+            }
+          
+          trigger = snippets_config_get_trigger (config);
+          
+          if (g_strcmp0 (word, trigger) == 0)
+            {
+              const gchar *text;
+              text = snippets_config_get_text (config);
+
+              gtk_text_buffer_begin_user_action (buffer);
+              gtk_text_buffer_delete (buffer, &start, &iter);
+              gtk_text_buffer_insert (buffer, &start, text, -1);
+              gtk_text_buffer_end_user_action (buffer);
+              return TRUE;
+            }
+
+          list = g_list_next (list);
+        }
+    }
   
   return FALSE;
+}
+
+static void
+move_iter_word_start (GtkTextIter *iter)
+{
+  gunichar ctext;
+  gtk_text_iter_backward_char (iter);
+  ctext = gtk_text_iter_get_char (iter);
+  
+  while (g_ascii_isalnum (ctext) || ctext == '_')
+    {
+      gtk_text_iter_backward_char (iter);
+      ctext = gtk_text_iter_get_char (iter);
+    }
+    
+  gtk_text_iter_forward_char (iter);    
 }

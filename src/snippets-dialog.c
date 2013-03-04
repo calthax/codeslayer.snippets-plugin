@@ -33,7 +33,7 @@ static void load_configs                (SnippetsDialog      *dialog);
 static void tree_add_action             (SnippetsDialog      *dialog);
 static void tree_remove_action          (SnippetsDialog      *dialog);
 static void tree_edited_action          (SnippetsDialog      *dialog, 
-                                         gchar               *path, 
+                                         gchar               *tree_path, 
                                          gchar               *file_types);                                         
 static void create_popup_menu           (SnippetsDialog      *dialog);
 static gboolean show_popup_menu         (SnippetsDialog      *dialog, 
@@ -484,7 +484,19 @@ tree_edited_action (SnippetsDialog *dialog,
       /* the parent */
       if (config == NULL)
         {
-          /* TODO: need to change all the child files types */        
+          GtkTreeIter child;
+          
+          if (!gtk_tree_model_iter_children (model, &child, &iter))
+            return;
+
+          do
+            {
+              SnippetsConfig *config;
+              gtk_tree_model_get (GTK_TREE_MODEL (model), &child, 
+                                  CONFIGURATION, &config, -1);
+              snippets_config_set_file_types (config, text);
+            }
+          while (gtk_tree_model_iter_next (model, &child));
         }
       else
         {
@@ -513,13 +525,16 @@ select_row_action (GtkTreeSelection *selection,
     {
       SnippetsConfig *config;
       GtkTextBuffer *buffer;
+      gboolean toplevel;
     
       gtk_tree_model_get (GTK_TREE_MODEL (model), &iter, 
                           CONFIGURATION, &config, -1);
       
       buffer = gtk_text_view_get_buffer (GTK_TEXT_VIEW (priv->text_view));
+      
+      toplevel = config == NULL;
         
-      if (config != NULL)
+      if (!toplevel)
         {
           const gchar *text;
           const gchar *trigger; 
@@ -537,7 +552,10 @@ select_row_action (GtkTreeSelection *selection,
         {
           gtk_text_buffer_set_text (buffer, "", -1);
           gtk_entry_set_text (GTK_ENTRY (priv->trigger_entry), "");
-        }                  
+        }
+        
+      gtk_widget_set_sensitive (GTK_WIDGET (priv->text_view), !toplevel);
+      gtk_widget_set_sensitive (GTK_WIDGET (priv->trigger_entry), !toplevel);
     }
     
   g_signal_handler_unblock (priv->trigger_entry, priv->trigger_entry_id);
@@ -603,6 +621,8 @@ text_view_action (SnippetsDialog *dialog,
           text = gtk_text_buffer_get_text (buffer, &start, &end, TRUE);
           
           snippets_config_set_text (config, text);
+          
+          g_free (text);
         }
     }
 }
@@ -642,7 +662,8 @@ add_snippet_action (SnippetsDialog *dialog)
     }
     
   tree_path = gtk_tree_model_get_path (GTK_TREE_MODEL (priv->store), &parent);
-  gtk_tree_view_expand_row (GTK_TREE_VIEW (priv->tree), tree_path, FALSE);    
+  gtk_tree_view_expand_row (GTK_TREE_VIEW (priv->tree), tree_path, FALSE);
+  gtk_tree_path_free (tree_path);
 }
 
 static void
@@ -657,7 +678,17 @@ remove_snippet_action (SnippetsDialog *dialog)
   
   tree_selection = gtk_tree_view_get_selection (GTK_TREE_VIEW (priv->tree));
   if (gtk_tree_selection_get_selected (tree_selection, &model, &iter))
-    gtk_tree_store_remove (priv->store, &iter);
+    {
+      SnippetsConfig *config;
+    
+      gtk_tree_model_get (GTK_TREE_MODEL (model), &iter, 
+                          CONFIGURATION, &config, -1);
+      
+      *priv->configs = g_list_remove (*priv->configs, config);
+      g_object_unref (config);
+      
+      gtk_tree_store_remove (GTK_TREE_STORE (model), &iter);
+    }
 }
 
 static void
@@ -754,16 +785,18 @@ get_showable_popup_items (SnippetsDialog *dialog)
 
   if (gtk_tree_selection_get_selected (tree_selection, &model, &iter))
     {
-      GtkTreePath *path;
+      GtkTreePath *tree_path;
       gint depth;
       
-      path = gtk_tree_model_get_path (model, &iter);
-      depth = gtk_tree_path_get_depth (path);
+      tree_path = gtk_tree_model_get_path (model, &iter);
+      depth = gtk_tree_path_get_depth (tree_path);
       
       if (depth == 1)
         results = g_list_append (results, priv->add_item);
       else if (depth == 2)
         results = g_list_append (results, priv->remove_item);
+        
+      gtk_tree_path_free (tree_path);
     }
     
   return results;
