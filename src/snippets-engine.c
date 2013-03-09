@@ -18,6 +18,9 @@
 
 #include <gdk/gdkkeysyms.h>
 #include <codeslayer/codeslayer-utils.h>
+#include <stdio.h>
+#include <libxml/parser.h>
+#include <libxml/tree.h>
 #include "snippets-engine.h"
 #include "snippets-dialog.h"
 #include "snippets-config.h"
@@ -26,6 +29,9 @@ static void snippets_engine_class_init  (SnippetsEngineClass *klass);
 static void snippets_engine_init        (SnippetsEngine      *engine);
 static void snippets_engine_finalize    (SnippetsEngine      *engine);
 
+static void save_configs                (SnippetsEngine      *engine);
+static void load_configs                (xmlNode             *a_node,
+                                         GList               **configs);
 static gchar* get_config_file_path      (SnippetsEngine      *engine);
 static GList* get_configs_deep_copy     (SnippetsEngine      *engine);
 static void editor_added_action         (SnippetsEngine       *engine, 
@@ -118,22 +124,31 @@ void
 snippets_engine_load_configs (SnippetsEngine *engine)
 {
   SnippetsEnginePrivate *priv;
-  GList *configs;
   gchar *file_path;
-
-  priv = SNIPPETS_ENGINE_GET_PRIVATE (engine);
+  xmlDoc *doc = NULL;
+  xmlNode *root_element = NULL;
   
+  priv = SNIPPETS_ENGINE_GET_PRIVATE (engine);
+
   file_path = get_config_file_path (engine);
-  configs = codeslayer_utils_get_gobjects (SNIPPETS_CONFIG_TYPE,
-                                           FALSE,
-                                           file_path, 
-                                           "snippet",
-                                           "file_types", G_TYPE_STRING, 
-                                           "name", G_TYPE_STRING, 
-                                           "trigger", G_TYPE_STRING, 
-                                           "text", G_TYPE_STRING, 
-                                            NULL);
-  priv->configs = configs;
+  if (file_path == NULL) 
+    return;
+
+  doc = xmlReadFile (file_path, NULL, 0);
+
+  if (doc == NULL) 
+    {
+      g_warning ("could not parse snippets file %s\n", file_path);
+      xmlCleanupParser();
+      return;
+    }
+
+  root_element = xmlDocGetRootElement (doc);
+
+  load_configs (root_element, &priv->configs);
+
+  xmlFreeDoc (doc);
+  xmlCleanupParser ();
   g_free (file_path);
 }
 
@@ -154,23 +169,11 @@ snippets_engine_open_dialog (SnippetsEngine *engine)
     
   if (response == GTK_RESPONSE_OK)
     {
-      gchar *file_path;
-      
       g_list_foreach (priv->configs, (GFunc) g_object_unref, NULL);
       g_list_free (priv->configs);      
       priv->configs = copies;
       
-      file_path = get_config_file_path (engine);
-      
-      codeslayer_utils_save_gobjects (copies,
-                                      file_path, 
-                                      "snippet",
-                                      "file_types", G_TYPE_STRING, 
-                                      "name", G_TYPE_STRING, 
-                                      "trigger", G_TYPE_STRING, 
-                                      "text", G_TYPE_STRING, 
-                                      NULL);
-      g_free (file_path);
+      save_configs (engine);
     }
   else
     {
@@ -179,6 +182,92 @@ snippets_engine_open_dialog (SnippetsEngine *engine)
     }
   
   gtk_widget_destroy (dialog);
+}
+
+static void
+load_configs (xmlNode *a_node, 
+              GList   **configs)
+{
+  xmlNode *cur_node = NULL;
+
+  for (cur_node = a_node; cur_node; cur_node = cur_node->next) 
+    {
+      if (cur_node->type == XML_ELEMENT_NODE)
+        {
+          if (g_strcmp0 ((gchar*)cur_node->name, "snippet") == 0)
+            {
+              SnippetsConfig *config;
+              xmlChar *file_types;
+              xmlChar *name;
+              xmlChar *text;
+              xmlChar *trigger;
+              
+              config = snippets_config_new ();
+            
+              file_types = xmlGetProp (cur_node, (const xmlChar*)"file_types");
+              name = xmlGetProp (cur_node, (const xmlChar*)"name");
+              trigger = xmlGetProp (cur_node, (const xmlChar*)"trigger");
+              text = xmlNodeGetContent (cur_node);
+              
+              snippets_config_set_file_types (config, (gchar*)file_types);
+              snippets_config_set_name (config, (gchar*)name);
+              snippets_config_set_text (config, (gchar*)text);
+              snippets_config_set_trigger (config, (gchar*)trigger);
+              
+              xmlFree (file_types);
+              xmlFree (name);
+              xmlFree (trigger);
+              xmlFree (text);
+              
+              *configs = g_list_append (*configs, config);
+            }
+        }
+      load_configs (cur_node->children, configs);
+    }
+}
+
+static void
+save_configs (SnippetsEngine *engine)
+{
+  SnippetsEnginePrivate *priv;
+  GList *list;
+  xmlDocPtr doc;
+  xmlNodePtr root_node;
+  gchar *file_path;
+  
+  priv = SNIPPETS_ENGINE_GET_PRIVATE (engine);
+  
+  file_path = get_config_file_path (engine);
+  
+  doc = xmlNewDoc (BAD_CAST "1.0");
+  
+  root_node = xmlNewNode (NULL, BAD_CAST "snippets");
+  xmlDocSetRootElement (doc, root_node);
+  
+  list = priv->configs;
+  while (list != NULL)
+    {
+      SnippetsConfig *config = list->data;
+      xmlNodePtr node, cdata;
+      const gchar *text;
+      
+      node = xmlNewChild (root_node, NULL, BAD_CAST "snippet", NULL);
+      xmlNewProp(node, BAD_CAST "file_types", BAD_CAST snippets_config_get_file_types (config));
+      xmlNewProp(node, BAD_CAST "name", BAD_CAST snippets_config_get_name (config));
+      xmlNewProp(node, BAD_CAST "trigger", BAD_CAST snippets_config_get_trigger (config));
+      
+      text = snippets_config_get_text (config);
+      cdata = xmlNewCDataBlock (doc, (const xmlChar*)text, g_utf8_strlen (text, -1));
+      xmlAddChild (node, cdata);      
+
+      list = g_list_next (list);
+    }
+  
+  xmlSaveFormatFileEnc(file_path, doc, "UTF-8", 1);
+
+  xmlFreeDoc(doc);
+  xmlCleanupParser();
+  g_free (file_path);
 }
 
 static gchar*
@@ -299,7 +388,6 @@ key_press_action (CodeSlayerEditor *editor,
             }
           
           trigger = snippets_config_get_trigger (config);
-          
           if (g_strcmp0 (word, trigger) == 0)
             {
               const gchar *text;
