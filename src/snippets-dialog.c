@@ -100,7 +100,7 @@ snippets_dialog_class_init (SnippetsDialogClass *klass)
 static void
 snippets_dialog_init (SnippetsDialog *dialog)
 {
-  gtk_window_set_title (GTK_WINDOW (dialog), "Snippets Configuration");
+  gtk_window_set_title (GTK_WINDOW (dialog), _("Snippets Configuration"));
   gtk_window_set_skip_taskbar_hint (GTK_WINDOW (dialog), TRUE);
   gtk_window_set_skip_pager_hint (GTK_WINDOW (dialog), TRUE);
 }
@@ -307,7 +307,7 @@ add_syntax_pane (SnippetsDialog *dialog,
   priv = SNIPPETS_DIALOG_GET_PRIVATE (dialog);
 
   vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 4);
-  label = gtk_label_new ("Text");
+  label = gtk_label_new (_("Text"));
   gtk_misc_set_alignment (GTK_MISC (label), .02, .5);
   
   grid = gtk_grid_new ();
@@ -315,7 +315,7 @@ add_syntax_pane (SnippetsDialog *dialog,
   
   /* the start entry */  
   
-  trigger_label = gtk_label_new ("Trigger");
+  trigger_label = gtk_label_new (_("Trigger"));
   trigger_entry =  gtk_entry_new ();
   priv->trigger_entry = trigger_entry;
 
@@ -446,8 +446,11 @@ tree_remove_action (SnippetsDialog *dialog)
           gtk_tree_model_get (GTK_TREE_MODEL (model), &iter, 
                               CONFIGURATION, &config, -1);
           
-          *priv->configs = g_list_remove (*priv->configs, config);
-          g_object_unref (config);
+          if (config != NULL)
+            {
+              *priv->configs = g_list_remove (*priv->configs, config);
+              g_object_unref (config);
+            }
           
           gtk_tree_store_remove (GTK_TREE_STORE (model), &iter);
         }
