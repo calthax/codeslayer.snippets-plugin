@@ -631,7 +631,6 @@ static void
 add_snippet_action (SnippetsDialog *dialog)
 {
   SnippetsDialogPrivate *priv;
-  GtkTreePath *tree_path;
   GtkTreeSelection *tree_selection;
   GtkTreeModel *model;
   GtkTreeIter parent;
@@ -642,10 +641,16 @@ add_snippet_action (SnippetsDialog *dialog)
   if (gtk_tree_selection_get_selected (tree_selection, &model, &parent))
     {
       GtkTreeIter iter;
+      GtkTreeViewColumn *column;
+      GtkTreePath *child_path;
+      GtkTreePath *tree_path;
       gchar *file_types;
       SnippetsConfig *config;
 
       config = snippets_config_new ();
+      snippets_config_set_name (config, "");
+      snippets_config_set_trigger (config, "");
+      snippets_config_set_text (config, "");
       
       gtk_tree_model_get (GTK_TREE_MODEL (model), &parent, 
                           TEXT, &file_types, -1);
@@ -657,13 +662,19 @@ add_snippet_action (SnippetsDialog *dialog)
       
       gtk_tree_store_append (priv->store, &iter, &parent);
       gtk_tree_store_set (priv->store, &iter, 
-                          TEXT, _("-- new snippet --"),
+                          TEXT, "",
                           CONFIGURATION, config, -1);
+                          
+      tree_path = gtk_tree_model_get_path (GTK_TREE_MODEL (priv->store), &parent);
+      gtk_tree_view_expand_row (GTK_TREE_VIEW (priv->tree), tree_path, FALSE);
+
+      column = gtk_tree_view_get_column (GTK_TREE_VIEW (priv->tree), 0);
+      child_path = gtk_tree_model_get_path (GTK_TREE_MODEL (priv->store), &iter);
+      gtk_tree_view_set_cursor (GTK_TREE_VIEW (priv->tree), child_path, column, TRUE);
+  
+      gtk_tree_path_free (tree_path);
+      gtk_tree_path_free (child_path);      
     }
-    
-  tree_path = gtk_tree_model_get_path (GTK_TREE_MODEL (priv->store), &parent);
-  gtk_tree_view_expand_row (GTK_TREE_VIEW (priv->tree), tree_path, FALSE);
-  gtk_tree_path_free (tree_path);
 }
 
 static void
