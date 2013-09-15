@@ -23,7 +23,7 @@ static void snippets_dialog_class_init  (SnippetsDialogClass *klass);
 static void snippets_dialog_init        (SnippetsDialog      *dialog);
 static void snippets_dialog_finalize    (SnippetsDialog      *dialog);
                                           
-static void preferences_changed_action  (SnippetsDialog      *dialog);
+static void registry_changed_action     (SnippetsDialog      *dialog);
 static void add_content_area            (SnippetsDialog      *dialog);
 static void add_file_types_pane         (SnippetsDialog      *dialog, 
                                          GtkWidget           *hpaned);
@@ -59,20 +59,20 @@ typedef struct _SnippetsDialogPrivate SnippetsDialogPrivate;
 
 struct _SnippetsDialogPrivate
 {
-  CodeSlayer            *codeslayer;
-  CodeSlayerPreferences *preferences;
-  GtkWidget             *tree;
-  GtkTreeStore          *store;
-  GList                 **configs;
-  GtkWidget             *trigger_entry;
-  GtkWidget             *text_view;
+  CodeSlayer         *codeslayer;
+  CodeSlayerRegistry *registry;
+  GtkWidget          *tree;
+  GtkTreeStore       *store;
+  GList              **configs;
+  GtkWidget          *trigger_entry;
+  GtkWidget          *text_view;
 
-  gulong                 text_buffer_id;
-  gulong                 trigger_entry_id;
+  gulong              text_buffer_id;
+  gulong              trigger_entry_id;
 
-  GtkWidget             *menu;
-  GtkWidget             *add_item;
-  GtkWidget             *remove_item;
+  GtkWidget          *menu;
+  GtkWidget          *add_item;
+  GtkWidget          *remove_item;
 };
 
 enum
@@ -123,12 +123,12 @@ snippets_dialog_new (CodeSlayer *codeslayer,
 
   priv->codeslayer = codeslayer;
   priv->configs = configs;
-  priv->preferences = codeslayer_get_preferences (codeslayer);
+  priv->registry = codeslayer_get_registry (codeslayer);
   
   add_content_area (SNIPPETS_DIALOG (dialog));
   create_popup_menu (SNIPPETS_DIALOG (dialog));
   
-  preferences_changed_action (SNIPPETS_DIALOG (dialog));
+  registry_changed_action (SNIPPETS_DIALOG (dialog));
   
   load_configs (SNIPPETS_DIALOG (dialog));
 
@@ -136,7 +136,7 @@ snippets_dialog_new (CodeSlayer *codeslayer,
 }
 
 static void
-preferences_changed_action (SnippetsDialog *dialog)
+registry_changed_action (SnippetsDialog *dialog)
 {
   SnippetsDialogPrivate *priv;
   
@@ -148,25 +148,25 @@ preferences_changed_action (SnippetsDialog *dialog)
   
   priv = SNIPPETS_DIALOG_GET_PRIVATE (dialog);
   
-  editor_tab_width = codeslayer_preferences_get_double (priv->preferences,
-                                                        CODESLAYER_PREFERENCES_EDITOR_TAB_WIDTH);
+  editor_tab_width = codeslayer_registry_get_double (priv->registry,
+                                                     CODESLAYER_REGISTRY_EDITOR_TAB_WIDTH);
   gtk_source_view_set_tab_width (GTK_SOURCE_VIEW (priv->text_view), editor_tab_width);
   gtk_source_view_set_indent_width (GTK_SOURCE_VIEW (priv->text_view), -1);
 
-  enable_automatic_indentation = codeslayer_preferences_get_boolean (priv->preferences,
-                                                                     CODESLAYER_PREFERENCES_EDITOR_ENABLE_AUTOMATIC_INDENTATION);
+  enable_automatic_indentation = codeslayer_registry_get_boolean (priv->registry,
+                                                                     CODESLAYER_REGISTRY_EDITOR_ENABLE_AUTOMATIC_INDENTATION);
   gtk_source_view_set_auto_indent (GTK_SOURCE_VIEW (priv->text_view), 
                                    enable_automatic_indentation);
   gtk_source_view_set_indent_on_tab (GTK_SOURCE_VIEW (priv->text_view),
                                      enable_automatic_indentation);
 
-  insert_spaces_instead_of_tabs = codeslayer_preferences_get_boolean (priv->preferences,
-                                                                      CODESLAYER_PREFERENCES_EDITOR_INSERT_SPACES_INSTEAD_OF_TABS);
+  insert_spaces_instead_of_tabs = codeslayer_registry_get_boolean (priv->registry,
+                                                                      CODESLAYER_REGISTRY_EDITOR_INSERT_SPACES_INSTEAD_OF_TABS);
   gtk_source_view_set_insert_spaces_instead_of_tabs (GTK_SOURCE_VIEW (priv->text_view),
                                                      insert_spaces_instead_of_tabs);
 
-  fontname = codeslayer_preferences_get_string (priv->preferences,
-                                                CODESLAYER_PREFERENCES_EDITOR_FONT);
+  fontname = codeslayer_registry_get_string (priv->registry,
+                                                CODESLAYER_REGISTRY_EDITOR_FONT);
   font_description = pango_font_description_from_string (fontname);
   
   if (fontname)
